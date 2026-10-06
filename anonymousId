@@ -1,0 +1,44 @@
+// Drop-in replacement for <MapView /> in your own project (not previewable inside Claude).
+//   npm i leaflet react-leaflet
+// In AIDisasterAssistant.jsx: import LeafletMap from "./LeafletMap";
+// then replace <MapView inc={inc} shel={shel} low={low} /> with:
+//   <LeafletMap inc={inc} shel={shel} sev={sev} haz={HAZ} />
+import { MapContainer, TileLayer, Circle, CircleMarker, Polyline, Tooltip } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+ 
+// Maps the prototype's 400x260 grid onto real coordinates around Pune.
+// When incidents carry real GPS (lat/lng), delete this and use them directly.
+const toLL = p => [18.5242 + (130 - p.y) * 0.0009, 73.8525 + (p.x - 200) * 0.0011];
+ 
+export default function LeafletMap({ inc, shel, sev, haz }) {
+  const act = inc.filter(i => i.status !== "RESOLVED");
+  const open = shel.filter(s => s.cap - s.occ >= 20);
+  const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+  const cor = act.filter(i => i.score >= 80).map(i => {
+    const s = [...open].sort((a, b) => dist(i, a) - dist(i, b))[0];
+    if (!s) return null;
+    const [a, b] = [toLL(i), toLL(s)];
+    return { id: i.id, pts: [a, [(a[0] + b[0]) / 2 + 0.004, (a[1] + b[1]) / 2], b] };
+  }).filter(Boolean);
+ 
+  return (
+    <MapContainer center={[18.5242, 73.8525]} zoom={13} scrollWheelZoom={false} className="relative z-0 h-[26rem] w-full rounded-xl border border-slate-200">
+      <TileLayer attribution="&copy; OpenStreetMap contributors" url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+      {act.map(i => (
+        <Circle key={"z" + i.id} center={toLL(i)} radius={150 + i.score * 6} pathOptions={{ color: sev(i.score).hex, weight: 1, fillOpacity: 0.12 }} />
+      ))}
+      {cor.map(c => <Polyline key={c.id} positions={c.pts} pathOptions={{ color: "#10b981", weight: 4, dashArray: "8 8", lineCap: "round" }} />)}
+      {shel.map(s => (
+        <CircleMarker key={s.id} center={toLL(s)} radius={9} pathOptions={{ color: "#fff", weight: 2, fillColor: "#10b981", fillOpacity: 1 }}>
+          <Tooltip>{s.name}: {s.cap - s.occ} beds free</Tooltip>
+        </CircleMarker>
+      ))}
+      {act.map(i => (
+        <CircleMarker key={i.id} center={toLL(i)} radius={8} pathOptions={{ color: "#fff", weight: 2, fillColor: sev(i.score).hex, fillOpacity: 1 }}>
+          <Tooltip>{haz[i.type].label} ({i.score}): {i.name}</Tooltip>
+        </CircleMarker>
+      ))}
+    </MapContainer>
+  );
+}
+ 

@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GDGoC - Bulk Certificate Generator</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS for XLSX / CSV Parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <!-- JSZip for Bulk PNG Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- FileSaver for Saving ZIPs -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <!-- jsPDF for Bulk PDF Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-950 p-4 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto flex justify-between items-center">
+      <div class="flex items-center gap-3">
+        <div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center font-bold text-white">G</div>
+        <h1 class="text-xl font-bold tracking-tight">GDGoC Certificate Generator</h1>
+      </div>
+      <span class="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-full font-mono">Task 1 Solution</span>
+    </div>
+  </header>
+
+  <main class="max-w-7xl mx-auto w-full p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 flex-grow">
+    
+    <!-- Controls Sidebar -->
+    <section class="lg:col-span-4 bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-5 flex flex-col justify-between">
+      <div class="space-y-5">
+        
+        <!-- Step 1: Upload Template -->
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">1. Upload Certificate Template</label>
+          <input type="file" id="templateInput" accept="image/*" 
+            class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer bg-slate-900 border border-slate-800 rounded-lg"/>
+        </div>
+
+        <!-- Step 2: Import Names -->
+        <div>
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">2. Import Names (.csv or .xlsx)</label>
+          <input type="file" id="namesInput" accept=".csv, .xlsx, .xls" 
+            class="block w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-600 file:text-white hover:file:bg-blue-500 cursor-pointer bg-slate-900 border border-slate-800 rounded-lg"/>
+          <p id="nameCountText" class="text-xs text-slate-500 mt-1">No file loaded yet.</p>
+        </div>
+
+        <!-- Step 3: Typography Controls -->
+        <div class="space-y-3 pt-2 border-t border-slate-800">
+          <label class="block text-xs font-semibold uppercase text-slate-400">3. Text Customization</label>
+          
+          <div>
+            <label class="text-xs text-slate-400">Font Family</label>
+            <select id="fontSelect" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="Arial">Arial</option>
+              <option value="Georgia">Georgia</option>
+              <option value="Times New Roman">Times New Roman</option>
+              <option value="Courier New">Courier New</option>
+              <option value="Verdana">Verdana</option>
+            </select>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-slate-400">Font Size (px)</label>
+              <input type="number" id="fontSizeInput" value="48" min="10" max="200" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-sm text-slate-200"/>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400">Text Color</label>
+              <input type="color" id="textColorInput" value="#1e293b" class="w-full h-8 bg-slate-900 border border-slate-800 rounded cursor-pointer p-0.5"/>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="text-xs text-slate-400">X Position (px)</label>
+              <input type="number" id="posXInput" value="400" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-sm text-slate-200"/>
+            </div>
+            <div>
+              <label class="text-xs text-slate-400">Y Position (px)</label>
+              <input type="number" id="posYInput" value="300" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1 text-sm text-slate-200"/>
+            </div>
+          </div>
+
+          <div>
+            <label class="text-xs text-slate-400">Alignment</label>
+            <select id="textAlignSelect" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-sm text-slate-200">
+              <option value="center">Center</option>
+              <option value="left">Left</option>
+              <option value="right">Right</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Step 4: Name Preview Switcher -->
+        <div class="pt-2 border-t border-slate-800">
+          <label class="block text-xs font-semibold uppercase text-slate-400 mb-2">4. Preview Selected Name</label>
+          <select id="nameDropdown" class="w-full bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-sm text-slate-200">
+            <option value="">Sample Participant</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Export Action Buttons -->
+      <div class="space-y-2 pt-4 border-t border-slate-800">
+        <button id="downloadCurrentBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-white font-medium py-2 rounded-lg text-sm transition">
+          Download Current Image (PNG)
+        </button>
+        <button id="downloadZipBtn" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-lg text-sm transition">
+          Bulk Download All (ZIP)
+        </button>
+        <button id="downloadPdfBtn" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2 rounded-lg text-sm transition">
+          Bulk Download All (PDF)
+        </button>
+      </div>
+    </section>
+
+    <!-- Canvas Preview Stage -->
+    <section class="lg:col-span-8 bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col items-center justify-center relative min-h-[450px]">
+      <div class="w-full flex justify-between items-center mb-3">
+        <span class="text-xs font-mono text-slate-400">Live Preview Stage</span>
+        <span class="text-xs text-blue-400 bg-blue-500/10 px-2 py-0.5 rounded border border-blue-500/20">💡 Drag name directly on canvas to reposition</span>
+      </div>
+      <div id="canvasContainer" class="relative max-w-full overflow-auto border border-slate-800 rounded bg-slate-900 flex items-center justify-center p-2">
+        <canvas id="certCanvas" class="cursor-grab active:cursor-grabbing max-w-full h-auto shadow-2xl"></canvas>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    // App State Variables
+    let templateImg = null;
+    let namesList = ["Sample Participant"];
+    let currentName = "Sample Participant";
+    let isDragging = false;
+
+    // Elements Reference
+    const canvas = document.getElementById('certCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    const templateInput = document.getElementById('templateInput');
+    const namesInput = document.getElementById('namesInput');
+    const nameDropdown = document.getElementById('nameDropdown');
+    const nameCountText = document.getElementById('nameCountText');
+
+    const fontSelect = document.getElementById('fontSelect');
+    const fontSizeInput = document.getElementById('fontSizeInput');
+    const textColorInput = document.getElementById('textColorInput');
+    const posXInput = document.getElementById('posXInput');
+    const posYInput = document.getElementById('posYInput');
+    const textAlignSelect = document.getElementById('textAlignSelect');
+
+    const downloadCurrentBtn = document.getElementById('downloadCurrentBtn');
+    const downloadZipBtn = document.getElementById('downloadZipBtn');
+    const downloadPdfBtn = document.getElementById('downloadPdfBtn');
+
+    // Initialize Default Blank Canvas
+    function initDefaultCanvas() {
+      canvas.width = 800;
+      canvas.height = 600;
+      posXInput.value = canvas.width / 2;
+      posYInput.value = canvas.height / 2;
+      renderCanvas();
+    }
+
+    // Render Canvas
+    function renderCanvas() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      if (templateImg) {
+        ctx.drawImage(templateImg, 0, 0, canvas.width, canvas.height);
+      } else {
+        // Placeholder background
+        ctx.fillStyle = '#0f172a';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+        
+        ctx.fillStyle = '#64748b';
+        ctx.font = '20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Please upload a certificate template image', canvas.width / 2, 80);
+      }
+
+      // Draw Name Text
+      const font = fontSelect.value;
+      const size = fontSizeInput.value;
+      const color = textColorInput.value;
+      const posX = parseFloat(posXInput.value) || canvas.width / 2;
+      const posY = parseFloat(posYInput.value) || canvas.height / 2;
+      const align = textAlignSelect.value;
+
+      ctx.font = `bold ${size}px ${font}`;
+      ctx.fillStyle = color;
+      ctx.textAlign = align;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(currentName, posX, posY);
+    }
+
+    // Handle Template Upload
+    templateInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        templateImg = new Image();
+        templateImg.onload = () => {
+          canvas.width = templateImg.width;
+          canvas.height = templateImg.height;
+          posXInput.value = Math.round(canvas.width / 2);
+          posYInput.value = Math.round(canvas.height / 2);
+          renderCanvas();
+        };
+        templateImg.src = event.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    // Handle CSV/XLSX Upload
+    namesInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const data = new Uint8Array(event.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const json = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        // Flatten matrix and clean strings
+        namesList = json.flat().map(item => String(item).trim()).filter(Boolean);
+
+        if (namesList.length > 0) {
+          nameCountText.textContent = `Successfully imported ${namesList.length} names.`;
+          populateDropdown();
+          currentName = namesList[0];
+          renderCanvas();
+        } else {
+          nameCountText.textContent = 'No valid names found in file.';
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    function populateDropdown() {
+      nameDropdown.innerHTML = '';
+      namesList.forEach((name, idx) => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = `${idx + 1}. ${name}`;
+        nameDropdown.appendChild(opt);
+      });
+    }
+
+    nameDropdown.addEventListener('change', (e) => {
+      currentName = e.target.value;
+      renderCanvas();
+    });
+
+    // Inputs Event Listeners
+    [fontSelect, fontSizeInput, textColorInput, posXInput, posYInput, textAlignSelect].forEach(input => {
+      input.addEventListener('input', renderCanvas);
+    });
+
+    // Drag and Drop Text Repositioning
+    function getCanvasCoordinates(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+      return {
+        x: Math.round((clientX - rect.left) * scaleX),
+        y: Math.round((clientY - rect.top) * scaleY)
+      };
+    }
+
+    function startDrag(e) {
+      isDragging = true;
+      updatePos(e);
+    }
+
+    function drag(e) {
+      if (isDragging) {
+        updatePos(e);
+      }
+    }
+
+    function stopDrag() {
+      isDragging = false;
+    }
+
+    function updatePos(e) {
+      const coords = getCanvasCoordinates(e);
+      posXInput.value = coords.x;
+      posYInput.value = coords.y;
+      renderCanvas();
+    }
+
+    canvas.addEventListener('mousedown', startDrag);
+    canvas.addEventListener('mousemove', drag);
+    window.addEventListener('mouseup', stopDrag);
+
+    canvas.addEventListener('touchstart', startDrag);
+    canvas.addEventListener('touchmove', drag);
+    window.addEventListener('touchend', stopDrag);
+
+    // Single Download (PNG)
+    downloadCurrentBtn.addEventListener('click', () => {
+      const link = document.createElement('a');
+      link.download = `Certificate_${currentName.replace(/\s+/g, '_')}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    });
+
+    // Bulk Download (ZIP)
+    downloadZipBtn.addEventListener('click', async () => {
+      if (!namesList.length) return alert('Please import names first.');
+      
+      const zip = new JSZip();
+      const folder = zip.folder("Certificates");
+
+      downloadZipBtn.innerText = "Generating ZIP...";
+      
+      for (let i = 0; i < namesList.length; i++) {
+        currentName = namesList[i];
+        renderCanvas();
+        const dataUrl = canvas.toDataURL('image/png');
+        const base64Data = dataUrl.replace(/^data:image\/png;base64,/, "");
+        folder.file(`Certificate_${currentName.replace(/\s+/g, '_')}.png`, base64Data, { base64: true });
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      saveAs(blob, "GDG_Certificates.zip");
+      downloadZipBtn.innerText = "Bulk Download All (ZIP)";
+    });
+
+    // Bulk Download (Multi-page PDF)
+    downloadPdfBtn.addEventListener('click', () => {
+      if (!namesList.length) return alert('Please import names first.');
+
+      const { jsPDF } = window.jspdf;
+      const orientation = canvas.width > canvas.height ? 'l' : 'p';
+      const pdf = new jsPDF(orientation, 'px', [canvas.width, canvas.height]);
+
+      downloadPdfBtn.innerText = "Generating PDF...";
+
+      for (let i = 0; i < namesList.length; i++) {
+        currentName = namesList[i];
+        renderCanvas();
+        const imgData = canvas.toDataURL('image/png');
+        if (i > 0) pdf.addPage([canvas.width, canvas.height], orientation);
+        pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      }
+
+      pdf.save("GDG_Certificates_Combined.pdf");
+      downloadPdfBtn.innerText = "Bulk Download All (PDF)";
+    });
+
+    // Initialize
+    initDefaultCanvas();
+  </script>
+</body>
+</html>
